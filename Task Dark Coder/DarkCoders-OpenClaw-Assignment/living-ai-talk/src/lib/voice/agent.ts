@@ -20,12 +20,12 @@ export async function readSse(response: Response, onEvent: (data: string) => voi
 
 export async function readError(response: Response, fallback: string) {
   try {
-    const body = (await response.json()) as { error?: unknown };
+    const body = (await response.clone().json()) as { error?: unknown };
     if (typeof body.error === "string") return body.error;
   } catch {
     /* ignore */
   }
-  return fallback;
+  return `${fallback} (HTTP ${response.status})`;
 }
 
 /** Uploads the recording and streams the transcript back. */
@@ -36,12 +36,22 @@ export async function transcribeRecording(
 ): Promise<string> {
   const form = new FormData();
   form.append("file", file, file.name);
-  const response = await fetch("/api/transcribe", { method: "POST", body: form, ...(signal ? { signal } : {}) });
-  if (!response.ok) throw new Error(await readError(response, "Could not understand that recording"));
+  const response = await fetch("/api/transcribe", {
+    method: "POST",
+    body: form,
+    ...(signal ? { signal } : {}),
+  });
+  if (!response.ok)
+    throw new Error(await readError(response, "Could not understand that recording"));
 
   let text = "";
   await readSse(response, (data) => {
-    const payload = JSON.parse(data) as { type?: string; delta?: string; text?: string; error?: unknown };
+    const payload = JSON.parse(data) as {
+      type?: string;
+      delta?: string;
+      text?: string;
+      error?: unknown;
+    };
     if (payload.error) throw new Error("Transcription failed");
     if (payload.type === "transcript.text.delta" && payload.delta) {
       text += payload.delta;
@@ -64,11 +74,12 @@ export async function streamAgentAnswer(
   signal?: AbortSignal,
   context?: string,
   model?: string,
+  agentRole?: string,
 ): Promise<string> {
   const response = await fetch("/api/agent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ turns, context, model }),
+    body: JSON.stringify({ turns, context, model, agentRole }),
     ...(signal ? { signal } : {}),
   });
   if (!response.ok) throw new Error(await readError(response, "The agent could not answer"));
@@ -76,7 +87,12 @@ export async function streamAgentAnswer(
   let answer = "";
   let thinking = "";
   await readSse(response, (data) => {
-    const payload = JSON.parse(data) as { type?: string; delta?: string; text?: string; error?: unknown };
+    const payload = JSON.parse(data) as {
+      type?: string;
+      delta?: string;
+      text?: string;
+      error?: unknown;
+    };
     if (payload.error || payload.type === "error") throw new Error("The agent stream failed");
     if (payload.type === "response.reasoning_summary_text.delta" && payload.delta) {
       thinking += payload.delta;

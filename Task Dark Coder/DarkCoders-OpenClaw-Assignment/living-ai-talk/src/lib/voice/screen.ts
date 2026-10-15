@@ -20,6 +20,47 @@ export type ActionProposal = {
   summary: string;
   risk?: "low" | "medium" | "high";
 };
+
+export type ProposalDecision = "approved" | "denied" | "dismissed";
+
+export function actionProposalDecisionText(
+  proposal: ActionProposal,
+  decision: ProposalDecision,
+): string {
+  if (decision === "approved")
+    return `Approval recorded for ${proposal.title}, but it was not executed. No remediation executor is configured, so no system changes were made.`;
+  if (decision === "dismissed")
+    return `The proposal for ${proposal.title} was dismissed. No action was executed.`;
+  return `The proposal for ${proposal.title} was denied. No action was executed.`;
+}
+
+export function parseActionProposalDecision(text: string): ProposalDecision | null {
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?]+$/, "")
+    .replace(/\s+/g, " ");
+  if (
+    /^(?:(?:yes|okay|ok),?\s+)?(?:i\s+)?(?:approve|approved)(?:\s+(?:(?:the|this)\s+)?(?:proposal|action|it))?$/.test(
+      normalized,
+    )
+  )
+    return "approved";
+  if (
+    /^(?:(?:no|nope),?\s+)?(?:i\s+)?(?:deny|denied|reject|rejected)(?:\s+(?:(?:the|this)\s+)?(?:proposal|action|it))?$/.test(
+      normalized,
+    )
+  )
+    return "denied";
+  if (
+    /^(?:(?:no|nope),?\s+)?(?:i\s+)?(?:dismiss|dismissed|cancel|cancelled|canceled)(?:\s+(?:(?:the|this)\s+)?(?:proposal|action|it))?$/.test(
+      normalized,
+    )
+  )
+    return "dismissed";
+  return null;
+}
+
 export type Screen = {
   text: string;
   choices: Choice[];

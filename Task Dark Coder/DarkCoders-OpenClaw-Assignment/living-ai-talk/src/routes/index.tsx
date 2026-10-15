@@ -38,9 +38,12 @@ import { GeneralSettings } from "@/components/general-settings";
 import { CloudSync } from "@/components/cloud-sync";
 import {
   parseScreen,
+  parseActionProposalDecision,
   partialText,
   spokenScreen,
+  actionProposalDecisionText,
   type ActionProposal,
+  type ProposalDecision,
   type Command,
   type Screen,
 } from "@/lib/voice/screen";
@@ -124,6 +127,7 @@ const newId = () => Math.random().toString(36).slice(2);
 function VoiceConsole() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [run, setRun] = useState<Run | null>(null);
+  const [pendingProposal, setPendingProposal] = useState<ActionProposal | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [level, setLevel] = useState(0);
   const [openDetails, setOpenDetails] = useState<string | null>(null);
@@ -135,6 +139,7 @@ function VoiceConsole() {
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messagesRef = useRef<Message[]>([]);
+  const pendingProposalRef = useRef<ActionProposal | null>(null);
   const reasoningRef = useRef("");
   const stepsRef = useRef<RunStep[]>([]);
   const [providers] = useProviders();
@@ -194,13 +199,9 @@ function VoiceConsole() {
         .filter((m) => !m.phase)
         .map(({ role, text }) => ({ role, text }));
       const roster = getAgents(voiceSettings);
-      const persona = roster[voiceSettings.agent]?.persona ?? "";
-      const context = [
-        persona && `Agent role (${voiceSettings.agent}): ${persona}`,
-        planSummary(planState),
-      ]
-        .filter(Boolean)
-        .join("\n\n");
+      const profile = roster[voiceSettings.agent];
+      const persona = profile?.persona ?? "";
+      const context = planSummary(planState);
       if (persona) addStep("Agent", roster[voiceSettings.agent]?.label);
       if (context)
         addStep(
@@ -271,6 +272,7 @@ function VoiceConsole() {
               },
             },
             signal,
+            persona,
           );
           break;
         } catch (error) {
@@ -301,6 +303,8 @@ function VoiceConsole() {
         );
       }
       if (screen.actionProposal) {
+        pendingProposalRef.current = screen.actionProposal;
+        setPendingProposal(screen.actionProposal);
         addStep(
           "Approval required",
           `${screen.actionProposal.title} · ${screen.actionProposal.tool}`,
@@ -416,9 +420,47 @@ function VoiceConsole() {
     [addStep, appendMessage, postPhase, run, runAgent],
   );
 
+  const decideProposal = useCallback(
+    (proposal: ActionProposal, decision: ProposalDecision, input?: string): boolean => {
+      if (pendingProposalRef.current?.id !== proposal.id) return false;
+      const at = Date.now();
+      if (input !== undefined) appendMessage({ id: newId(), role: "user", text: input, at });
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: actionProposalDecisionText(proposal, decision),
+        at,
+        steps: [
+          {
+            label:
+              decision === "approved"
+                ? "Approval recorded"
+                : decision === "dismissed"
+                  ? "Dismissed"
+                  : "Denied",
+            detail:
+              decision === "approved"
+                ? "No executor configured; no system changes made"
+                : "No action executed",
+            at,
+            tone: "warn",
+          },
+        ],
+      });
+      pendingProposalRef.current = null;
+      setPendingProposal(null);
+      setRun(null);
+      return true;
+    },
+    [appendMessage],
+  );
+
   const sendText = useCallback(
     (text: string) => {
       if (run || isRecording) return;
+      const decision = parseActionProposalDecision(text);
+      const proposal = pendingProposalRef.current;
+      if (proposal && decision !== null && decideProposal(proposal, decision, text)) return;
       resetSteps();
       addStep("Received", "text message");
       const history = appendMessage({ id: newId(), role: "user", text, at: Date.now() });
@@ -447,7 +489,7 @@ function VoiceConsole() {
           abortRef.current = null;
         });
     },
-    [appendMessage, isRecording, run, runAgent],
+    [addStep, appendMessage, decideProposal, isRecording, run, runAgent],
   );
 
   const finishTurn = useCallback(
@@ -474,6 +516,9 @@ function VoiceConsole() {
               )
             : await transcribeRecording(file, onPartial, controller.signal);
         const userMessage: Message = { id: newId(), role: "user", text: heard, at: Date.now() };
+        const decision = parseActionProposalDecision(heard);
+        const proposal = pendingProposalRef.current;
+        if (proposal && decision !== null && decideProposal(proposal, decision, heard)) return;
         addStep("Heard", heard.length > 60 ? `${heard.slice(0, 60)}…` : heard);
         const history = appendMessage(userMessage);
         setRun((current) => (current ? { ...current, heard, stage: "planning" } : current));
@@ -496,7 +541,7 @@ function VoiceConsole() {
         abortRef.current = null;
       }
     },
-    [addStep, appendMessage, runAgent],
+    [addStep, appendMessage, decideProposal, runAgent],
   );
 
   const startRecording = useCallback(async () => {
@@ -1126,19 +1171,9 @@ function VoiceConsole() {
           statusLabel={isRecording ? "Listening" : run ? STAGE_LABEL[run.stage] : "Idle"}
           turns={messages.length}
           show={view === "run"}
-          proposal={
-            messages[messages.length - 1]?.role === "assistant"
-              ? messages[messages.length - 1]?.screen?.actionProposal
-              : null
-          }
+          proposal={pendingProposal}
           disabled={busy || isRecording}
-          onDecideProposal={(proposal: ActionProposal, approved: boolean) => {
-            sendText(
-              approved
-                ? `Approved action [${proposal.id}] (${proposal.title} via ${proposal.tool}). Proceed and report the result.`
-                : `Denied action [${proposal.id}] (${proposal.title}). Do not execute.`,
-            );
-          }}
+          onDecideProposal={decideProposal}
         />
       </div>
       <nav

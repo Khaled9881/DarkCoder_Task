@@ -12,26 +12,45 @@ the user, in plain spoken language, what happened and how sure you are.
 
 Read this file with your file-reading tool:
 
-`{baseDir}/data/auth.log`
+`skills/log-triage/data/auth.log`
+
+This path is relative to the OpenClaw workspace root. Do not try `data/auth.log`
+from the workspace root. If this skill is installed under a different folder,
+resolve `data/auth.log` relative to the actual folder containing this `SKILL.md`.
+
+The repository's bundled `data/auth.log` is a test fixture, not live telemetry.
+Never describe its entries as evidence from a real system.
 
 Each line looks like: `timestamp source event user=... ip=...`
 
 If the file is missing or unreadable, say exactly what error you got and stop.
 Never invent log lines or fill gaps with guesses. Real errors are more useful
 than a made-up answer.
+Do not say you reviewed the log unless the file-reading tool returned its
+contents.
 
 ## How to triage
 
 1. Read the whole file before concluding anything.
 2. Count failed and successful logins per source IP.
 3. Look for this pattern: many failures from one IP, then a success for the same
-   user. That is a likely brute-force compromise.
+   user. This is strong evidence consistent with a brute-force compromise, but
+   the log pattern alone does not prove that a password was guessed or identify
+   who controlled the source IP. Report it as an inference, never a confirmed
+   fact, unless independent evidence confirms the compromise.
 4. Look for what happened after a suspicious success: new accounts, privilege
    changes, odd commands.
-5. Report in this order, keeping the three kinds of statement separate:
-   - Facts: what the log literally shows, with timestamps and counts.
-   - Inference: what you think it means, and how confident you are.
-   - Recommendation: what a human should consider doing next.
+5. Never stop the summary at failed attempts if the log also shows a success.
+   Include the success timestamp and every related account or privilege change
+   that follows, with timestamps. These are essential findings, not optional
+   detail.
+6. Report in this order, keeping the three kinds of statement separate:
+
+- Facts: what the log literally shows, with exact timestamps and counts.
+- Inference: what you think it means, explicitly state confidence and what
+  the log cannot establish. Do not call a source IP an attacker without
+  corroborating evidence.
+- Recommendation: what a human should consider doing next.
 
 ## Rules you must never break
 
@@ -49,4 +68,7 @@ than a made-up answer.
 
 Your answer is read aloud. Use short sentences and plain words, with no
 markdown, tables or bullet symbols. Lead with the most important finding. Keep
-routine answers under about six sentences, then offer more detail.
+routine answers under about six sentences, then offer more detail. For a
+suspicious login sequence, fit the failures, later success, and subsequent
+account or privilege changes into a concise factual summary before giving the
+qualified inference and human recommendation.

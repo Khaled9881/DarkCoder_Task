@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { OUTPUT_FORMAT, SYSTEM_PROMPT, planContextMessage } from "@/lib/voice/prompt";
+import {
+  agentRoleMessage,
+  OUTPUT_FORMAT,
+  SYSTEM_PROMPT,
+  planContextMessage,
+} from "@/lib/voice/prompt";
 
 type Turn = { role: "user" | "assistant"; text: string };
 
@@ -12,16 +17,19 @@ export const Route = createFileRoute("/api/agent")({
         let turns: Turn[] = [];
         let context: string | undefined;
         let modelName: string | undefined;
+        let agentRole: string | undefined;
         try {
           const body = (await request.json()) as {
             turns?: Turn[];
             context?: unknown;
             model?: unknown;
+            agentRole?: unknown;
           };
           if (Array.isArray(body.turns))
             turns = body.turns.filter((t) => t && typeof t.text === "string");
           if (typeof body.context === "string") context = body.context;
           if (typeof body.model === "string") modelName = body.model;
+          if (typeof body.agentRole === "string") agentRole = body.agentRole.slice(0, 2000);
         } catch {
           turns = [];
         }
@@ -46,6 +54,14 @@ export const Route = createFileRoute("/api/agent")({
         const plan = planContextMessage(context);
         const input: Record<string, unknown>[] = [
           { role: "system", content: [{ type: "input_text", text: SYSTEM_PROMPT }] },
+          ...(agentRoleMessage(agentRole)
+            ? [
+                {
+                  role: "system",
+                  content: [{ type: "input_text", text: agentRoleMessage(agentRole)! }],
+                },
+              ]
+            : []),
           ...(plan ? [{ role: "system", content: [{ type: "input_text", text: plan }] }] : []),
           ...turns.slice(-12).map((turn) => ({
             role: turn.role,

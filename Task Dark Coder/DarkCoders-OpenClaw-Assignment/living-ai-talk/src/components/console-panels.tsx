@@ -14,7 +14,13 @@ import { PlanBuilder } from "@/components/plan-builder";
 import { useProviders } from "@/components/provider-settings";
 import { BUILTIN, findProvider } from "@/lib/settings/providers";
 import { InlineKeyboard } from "@/components/telegram-run";
-import { NAV_LABEL, paginate, type ActionProposal, type Screen } from "@/lib/voice/screen";
+import {
+  NAV_LABEL,
+  paginate,
+  type ActionProposal,
+  type ProposalDecision,
+  type Screen,
+} from "@/lib/voice/screen";
 import { ENGINE_LABEL, getAgents, useVoiceSettings } from "@/lib/settings/voice";
 
 export type PanelStage =
@@ -253,7 +259,7 @@ export function LifecyclePanel({
   turns: number;
   proposal?: ActionProposal | null | undefined;
   disabled?: boolean;
-  onDecideProposal?: (proposal: ActionProposal, approved: boolean) => void;
+  onDecideProposal?: (proposal: ActionProposal, decision: ProposalDecision) => void;
 }) {
   const [voice] = useVoiceSettings();
   const [providers] = useProviders();
@@ -288,20 +294,30 @@ export function LifecyclePanel({
             <p className="text-xs font-semibold text-foreground">{proposal.title}</p>
             <p className="font-mono text-[10px] text-primary">Tool · {proposal.tool}</p>
             <p className="text-xs leading-relaxed text-muted-foreground">{proposal.summary}</p>
+            <p className="text-xs leading-relaxed text-severity-medium">
+              No remediation executor is configured. Approval records your decision only; it will
+              not change a system.
+            </p>
             {onDecideProposal && (
               <InlineKeyboard
                 buttons={[
                   {
                     key: "approve",
                     label: "✓ Approve",
-                    onClick: () => onDecideProposal(proposal, true),
+                    onClick: () => onDecideProposal(proposal, "approved"),
                     disabled,
                   },
                   {
                     key: "deny",
                     label: "✕ Deny",
                     tone: "danger",
-                    onClick: () => onDecideProposal(proposal, false),
+                    onClick: () => onDecideProposal(proposal, "denied"),
+                    disabled,
+                  },
+                  {
+                    key: "dismiss",
+                    label: "Dismiss",
+                    onClick: () => onDecideProposal(proposal, "dismissed"),
                     disabled,
                   },
                 ]}
