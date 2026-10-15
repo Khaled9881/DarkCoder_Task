@@ -48,9 +48,26 @@ npm run dev
 - **`src/lib/settings/voice.ts`** — OpenClaw agent roster (`AGENTS`) and voice/ASR settings
 - **`src/lib/voice/screen.ts`** — Structured screen, voice command (`app_commands`), and `action_proposal` parser
 
+## What Was Built
+
+- A SOC analyst profile with a read-only `log-triage` skill.
+- Voice input through the local faster-whisper sidecar and spoken browser output.
+- Live run stages for transcription, planning, thinking, tool-call requests, and reply generation.
+- Structured approval cards for risky actions with Approve, Deny, and Dismiss outcomes.
+- A five-phase SOC incident-triage planning workflow; the original V3 rollout remains an optional template.
+- Prompt-injection protection for untrusted log contents and calibrated facts-versus-inference reporting.
+
+## Calls and Integrations
+
+- The console calls `POST /api/agent`, which forwards agent requests to the configured OpenClaw Gateway at `/v1/chat/completions` or `/v1/responses`.
+- The SOC skill calls OpenClaw's read-only `read_file` tool for `skills/log-triage/data/auth.log`.
+- Local voice input calls `POST http://localhost:8000/v1/audio/transcriptions` through the bundled Whisper sidecar.
+- Risky requests return a structured `action_proposal`; the console records the human decision locally and does not execute remediation.
+- Standard streamed model tool-call events are forwarded to the live step log by tool name only. Native Gateway WebSocket `tool-events` subscription is documented as a remaining integration boundary.
+
 ## AI Assistance
 
-GitHub Copilot helped trace the console-to-gateway prompt flow, separate agent role guidance from untrusted plan data, add focused tests, and prepare the OpenClaw handoff. The log findings are derived from the supplied fixture; no live security data or completed remediation is claimed.
+GitHub Copilot helped inspect the existing console, trace the gateway and voice pipelines, design the SOC skill and safety boundaries, implement the Whisper sidecar, separate agent role guidance from untrusted plan data, add approval-safety tests, improve the planner workflow, and prepare this handoff. All findings come from the supplied test fixture; no live security data or completed remediation is claimed.
 
 ## Assignment
 
