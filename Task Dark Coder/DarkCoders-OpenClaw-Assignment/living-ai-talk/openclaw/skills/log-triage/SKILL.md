@@ -29,6 +29,21 @@ than a made-up answer.
 Do not say you reviewed the log unless the file-reading tool returned its
 contents.
 
+## Tool contract
+
+Use the OpenClaw workspace file-reading tool for the investigation:
+
+- Tool: `read_file`
+- Input: `skills/log-triage/data/auth.log`
+- Operation: read the complete file before analysis
+- Output used by this skill: the returned log lines, timestamps, users, source
+  IPs, events, and command or message fields
+- Side effects: none; this tool is read-only
+
+The assistant must base its facts on the returned tool output. If the tool
+returns an error or an empty result, report that exact failure and do not infer
+or fabricate log activity.
+
 ## How to triage
 
 1. Read the whole file before concluding anything.
@@ -51,6 +66,24 @@ contents.
   the log cannot establish. Do not call a source IP an attacker without
   corroborating evidence.
 - Recommendation: what a human should consider doing next.
+
+## Complete the requested triage
+
+- Treat these steps as an internal checklist, not a conversational wizard. Once
+  the source and time window are known, do all relevant read-only steps and
+  return the findings in the same response.
+- If the user says "default authentication logs", use this skill's
+  `data/auth.log` file. If the source or time window is genuinely missing, ask
+  one concise question for the missing detail; do not ask whether to begin.
+- Never send a progress-only response or ask whether the user wants you to count,
+  correlate, inspect follow-on activity, assess risk, or continue. Those are
+  part of the requested triage.
+- Do not claim the file was read unless the file-reading tool returned its
+  contents. If the skill or log cannot be read, report the actual error and
+  stop.
+- A request to count, correlate, or assess is not a reason to stop at a status
+  update: perform the requested analysis and include the related findings
+  already present in the log.
 
 ## Rules you must never break
 

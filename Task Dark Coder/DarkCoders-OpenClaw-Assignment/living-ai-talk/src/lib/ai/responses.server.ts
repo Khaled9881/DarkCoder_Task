@@ -84,6 +84,7 @@ async function streamChatAsResponses(
     headers.set("Content-Type", "text/event-stream");
     headers.set("Cache-Control", "no-cache");
     const enc = new TextEncoder();
+    const emittedToolIndexes = new Set<number>();
     let buf = "";
     const out = response.body.pipeThrough(new TextDecoderStream()).pipeThrough(
       new TransformStream<string, Uint8Array>({
@@ -96,9 +97,20 @@ async function streamChatAsResponses(
             if (!data || data === "[DONE]") continue;
             try {
               const parsed = JSON.parse(data) as {
-                choices?: { delta?: { content?: string; reasoning_content?: string } }[];
+                choices?: {
+                  delta?: {
+                    content?: string;
+                    reasoning_content?: string;
+                    tool_calls?: {
+                      index?: number;
+                      id?: string;
+                      function?: { name?: string; arguments?: string };
+                    }[];
+                  };
+                }[];
               };
-              const reasoning = parsed.choices?.[0]?.delta?.reasoning_content;
+              const delta = parsed.choices?.[0]?.delta;
+              const reasoning = delta?.reasoning_content;
               if (reasoning) {
                 ctrl.enqueue(
                   enc.encode(
@@ -106,13 +118,25 @@ async function streamChatAsResponses(
                   ),
                 );
               }
-              const delta = parsed.choices?.[0]?.delta?.content;
-              if (delta)
+              const textDelta = delta?.content;
+              if (textDelta)
                 ctrl.enqueue(
                   enc.encode(
-                    `data: ${JSON.stringify({ type: "response.output_text.delta", delta })}\n\n`,
+                    `data: ${JSON.stringify({ type: "response.output_text.delta", delta: textDelta })}\n\n`,
                   ),
                 );
+
+              for (const [fallbackIndex, toolCall] of (delta?.tool_calls ?? []).entries()) {
+                const index = toolCall.index ?? fallbackIndex;
+                const name = toolCall.function?.name?.trim();
+                if (!name || emittedToolIndexes.has(index)) continue;
+                emittedToolIndexes.add(index);
+                ctrl.enqueue(
+                  enc.encode(
+                    `data: ${JSON.stringify({ type: "response.tool_call.started", index, call_id: toolCall.id, name: name.slice(0, 80) })}\n\n`,
+                  ),
+                );
+              }
             } catch {
               /* partial line */
             }

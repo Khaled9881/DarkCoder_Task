@@ -17,7 +17,11 @@ export function unlockSpeaker(): void {
   if (typeof window === "undefined") return;
   if (!shared || shared.state === "closed") shared = new AudioContext({ sampleRate: 24000 });
   if (shared.state === "suspended") void shared.resume();
-  try { window.speechSynthesis?.resume(); } catch { /* ignore */ }
+  try {
+    window.speechSynthesis?.resume();
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Streams spoken audio for `text` from the app's speech route and plays it as it arrives. */
@@ -48,7 +52,11 @@ export async function speak(text: string, signal?: AbortSignal, rate = 1): Promi
     if (!response.ok || !response.body) throw new Error(`Speech failed: ${response.status}`);
     const parser = createParser({
       onEvent(event) {
-        const payload = JSON.parse(event.data) as { type?: string; audio?: string; error?: unknown };
+        const payload = JSON.parse(event.data) as {
+          type?: string;
+          audio?: string;
+          error?: unknown;
+        };
         if (payload.type === "error" || payload.error) throw new Error("Speech failed");
         if (payload.type === "speech.audio.done") {
           completed = true;

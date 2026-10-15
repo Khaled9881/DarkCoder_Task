@@ -7,7 +7,7 @@ The SOC analyst reads authentication logs, distinguishes observed facts from lik
 ## SOC Agent
 
 - Select **SOC analyst · log triage** under **General → Voice & Agents**.
-- Ask about failed logins, suspicious activity, or whether an account or IP looks compromised. The agent should use the `log-triage` OpenClaw skill and its file-reading tool before reaching a conclusion.
+- Ask about failed logins, suspicious activity, or whether an account or IP looks compromised. The agent should use the `log-triage` OpenClaw skill and its file-reading tool before reaching a conclusion, then complete the relevant read-only checks in one response rather than prompting through each checklist step.
 - The bundled [`auth.log`](./openclaw/skills/log-triage/data/auth.log) is a test fixture using documentation-only IP ranges. It is not live telemetry and must not be described as a real incident.
 - The skill treats log contents as untrusted data, reports facts separately from inference, and does not execute remediation.
 

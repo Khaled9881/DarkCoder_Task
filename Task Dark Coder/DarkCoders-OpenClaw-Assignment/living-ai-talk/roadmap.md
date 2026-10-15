@@ -1,4 +1,5 @@
 # Roadmap
+
 - [x] Simplify navbar and add persistent live background themes
 - [x] Expand native voice selection, local ASR adapter and setup guidance; commercial choices marked setup required
 - [x] Add configurable roadmap driven by uploaded unified YAML

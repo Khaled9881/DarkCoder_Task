@@ -38,6 +38,7 @@ import { GeneralSettings } from "@/components/general-settings";
 import { CloudSync } from "@/components/cloud-sync";
 import {
   parseScreen,
+  claimsProposalReady,
   parseActionProposalDecision,
   partialText,
   spokenScreen,
@@ -270,6 +271,7 @@ function VoiceConsole() {
                       : current,
                   );
               },
+              onToolCall: (name) => addStep("Tool call requested", name),
             },
             signal,
             persona,
@@ -285,7 +287,7 @@ function VoiceConsole() {
 
       // Blueprint: invalid planner output renders a safe error screen. Plain-text local replies are shown as-is.
       const cleaned = cleanRaw(raw);
-      const screen: Screen =
+      let screen: Screen =
         parseScreen(cleaned) ??
         (used.kind !== "builtin" && !cleaned.startsWith("{")
           ? { text: cleaned, choices: [], navigation: [] }
@@ -294,6 +296,16 @@ function VoiceConsole() {
               choices: [],
               navigation: ["home"],
             });
+      if (!screen.actionProposal && claimsProposalReady(screen.text)) {
+        screen = {
+          ...screen,
+          text: "No reviewable proposal was created, so no new proposal is pending and no action was executed. Please request one specific action at a time.",
+          choices: [],
+          navigation: [],
+          commands: [],
+        };
+        addStep("No structured proposal", "No action was proposed", "warn");
+      }
       for (const command of screen.commands ?? []) {
         const result = commandRef.current(command);
         addStep(

@@ -7,7 +7,11 @@ import {
 import { readError, readSse, streamAgentAnswer, type Turn } from "@/lib/voice/agent";
 import { KIND_INFO, type Provider } from "@/lib/settings/providers";
 
-type Handlers = { onThinking: (text: string) => void; onAnswer: (text: string) => void };
+type Handlers = {
+  onThinking: (text: string) => void;
+  onAnswer: (text: string) => void;
+  onToolCall: (name: string) => void;
+};
 
 /** Removes ```json fences some local models add. */
 export function cleanRaw(raw: string): string {

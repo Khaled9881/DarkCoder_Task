@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentRoleMessage, planContextMessage } from "./prompt.ts";
+import { agentRoleMessage, planContextMessage, SYSTEM_PROMPT } from "./prompt.ts";
 
 test("agent role guidance is separate from untrusted plan context", () => {
   const role = agentRoleMessage("Act as a SOC analyst and inspect suspicious logins.");
@@ -16,4 +16,9 @@ test("agent role guidance is separate from untrusted plan context", () => {
 test("agent role guidance is bounded and omitted when blank", () => {
   assert.equal(agentRoleMessage("  "), null);
   assert.ok((agentRoleMessage("x".repeat(2500)) ?? "").length < 2200);
+});
+
+test("multi-step tasks should complete without serial progress prompts", () => {
+  assert.match(SYSTEM_PROMPT, /complete all requested safe steps in one response/);
+  assert.match(SYSTEM_PROMPT, /do not turn a checklist into serial progress updates/);
 });

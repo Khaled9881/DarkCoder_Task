@@ -51,7 +51,7 @@ A weekend is plenty. The core should take a focused half-day; polish and stretch
 
 ## 7. Ground rules
 
-- **Use AI tools.** We expect it. Just note in your README where they helped — we're looking at *how* you used them.
+- **Use AI tools.** We expect it. Just note in your README where they helped — we're looking at _how_ you used them.
 - **Rough is fine.** We're reading your judgment, not your polish.
 - **No fake results.** If something fails, show the real error. Never swap in fake data behind the scenes.
 
@@ -75,7 +75,7 @@ We'll sit down together and walk through what you built — your choices, your t
 
 ## Appendix — the agent contract
 
-*For when you get there. Skip until you've started.*
+_For when you get there. Skip until you've started._
 
 ### Plain replies
 
@@ -111,7 +111,11 @@ When your agent wants to do something consequential, it proposes it instead of d
 ```json
 {
   "kind": "screen",
-  "screen": { "text": "I've prepared this and need your OK first.", "choices": [], "navigation": ["cancel"] },
+  "screen": {
+    "text": "I've prepared this and need your OK first.",
+    "choices": [],
+    "navigation": ["cancel"]
+  },
   "action_proposal": {
     "id": "act_01",
     "title": "Restart staging worker",

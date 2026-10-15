@@ -9,7 +9,12 @@ describe("architecture YAML stays specification data", () => {
     ]);
   });
   it("exports reviews without granting deployment authority", () => {
-    assert.equal(exportRoadmap({ source: "", statuses: { "voice.input": "reviewed" } }).includes("deployment_authority: false"), true);
+    assert.equal(
+      exportRoadmap({ source: "", statuses: { "voice.input": "reviewed" } }).includes(
+        "deployment_authority: false",
+      ),
+      true,
+    );
   });
   it("rejects duplicate fields", () => {
     assert.throws(() => parsePlan("voice: true\nvoice: false"));

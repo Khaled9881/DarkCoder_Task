@@ -2,6 +2,20 @@ import { createParser } from "eventsource-parser";
 
 export type Turn = { role: "user" | "assistant"; text: string };
 
+export function toolCallNameFromEvent(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const event = payload as Record<string, unknown>;
+  if (event["type"] === "response.tool_call.started" && typeof event["name"] === "string")
+    return event["name"].trim().slice(0, 80) || null;
+  if (event["type"] !== "response.output_item.added") return null;
+  const item = event["item"];
+  if (!item || typeof item !== "object") return null;
+  const tool = item as Record<string, unknown>;
+  return tool["type"] === "function_call" && typeof tool["name"] === "string"
+    ? tool["name"].trim().slice(0, 80) || null
+    : null;
+}
+
 export async function readSse(response: Response, onEvent: (data: string) => void) {
   if (!response.body) throw new Error("Empty response stream");
   const parser = createParser({ onEvent: (event) => onEvent(event.data) });
@@ -70,7 +84,11 @@ export async function transcribeRecording(
 /** Streams the agent answer, reporting reasoning summary text and answer deltas separately. */
 export async function streamAgentAnswer(
   turns: Turn[],
-  handlers: { onThinking: (text: string) => void; onAnswer: (text: string) => void },
+  handlers: {
+    onThinking: (text: string) => void;
+    onAnswer: (text: string) => void;
+    onToolCall: (name: string) => void;
+  },
   signal?: AbortSignal,
   context?: string,
   model?: string,
@@ -86,14 +104,30 @@ export async function streamAgentAnswer(
 
   let answer = "";
   let thinking = "";
+  const seenToolCalls = new Set<string>();
   await readSse(response, (data) => {
     const payload = JSON.parse(data) as {
       type?: string;
       delta?: string;
       text?: string;
       error?: unknown;
+      index?: number;
+      call_id?: string;
+      item?: { id?: string; call_id?: string };
     };
     if (payload.error || payload.type === "error") throw new Error("The agent stream failed");
+    const toolName = toolCallNameFromEvent(payload);
+    if (toolName) {
+      const key =
+        payload.call_id ??
+        payload.item?.call_id ??
+        payload.item?.id ??
+        String(payload.index ?? toolName);
+      if (!seenToolCalls.has(key)) {
+        seenToolCalls.add(key);
+        handlers.onToolCall(toolName);
+      }
+    }
     if (payload.type === "response.reasoning_summary_text.delta" && payload.delta) {
       thinking += payload.delta;
       handlers.onThinking(thinking);

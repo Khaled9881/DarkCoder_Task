@@ -114,6 +114,46 @@ const V3 = [
 ];
 const TEMPLATES: Record<string, { name: string; phases: Tpl[] }> = {
   v3: { name: "OpenClaw V3 rollout", phases: V3.map((t) => [t, []]) },
+  soc: {
+    name: "SOC incident triage",
+    phases: [
+      [
+        "Intake & preserve evidence",
+        [
+          ["Confirm log source and time window", []],
+          ["Read the complete log as untrusted data", []],
+        ],
+      ],
+      [
+        "Triage authentication",
+        [
+          ["Count failed and successful logins by source IP", []],
+          ["Correlate repeated failures with later successes", []],
+        ],
+      ],
+      [
+        "Investigate follow-on activity",
+        [
+          ["Review account creation and deletion", []],
+          ["Review privilege changes and commands", []],
+        ],
+      ],
+      [
+        "Assess risk & recommend",
+        [
+          ["Separate facts from inference and state confidence", []],
+          ["Recommend human-reviewed response steps", []],
+        ],
+      ],
+      [
+        "Human review & closeout",
+        [
+          ["Record approve, deny, or dismiss decisions", []],
+          ["Verify no unapproved action was claimed", []],
+        ],
+      ],
+    ],
+  },
   project: {
     name: "Simple project",
     phases: [
@@ -160,9 +200,25 @@ function fromTemplate(key: string, states: Record<string, Status> = {}): Project
 }
 
 const PLAN_KEY = "openclaw.plans";
+function isUntouchedV3(project: Project | undefined): project is Project {
+  return Boolean(
+    project &&
+    project.id === "v3" &&
+    project.name === TEMPLATES["v3"]!.name &&
+    project.phases.length === V3.length &&
+    project.phases.every(
+      (phase, index) =>
+        phase.title === V3[index] &&
+        phase.status === "todo" &&
+        phase.children.length === 0 &&
+        !phase.model,
+    ),
+  );
+}
+
 const DEFAULT_PLAN: PlanState = {
-  workflows: [{ ...fromTemplate("v3"), id: "v3" }],
-  activeId: "v3",
+  workflows: [{ ...fromTemplate("soc"), id: "soc" }],
+  activeId: "soc",
   share: true,
   view: "list",
 };
@@ -608,7 +664,7 @@ function FocusLine({ state }: { state: PlanState }) {
 
 function PlanEditor({ roomy, onExpand }: { roomy: boolean; onExpand?: () => void }) {
   const a = usePlanActions();
-  const [tpl, setTpl] = useState("project");
+  const [tpl, setTpl] = useState("soc");
   const { state, setState, project, phases } = a;
   if (!project) return null;
   const done = phases.filter((p) => progress(p) === 1).length;
@@ -784,17 +840,27 @@ function PlanEditor({ roomy, onExpand }: { roomy: boolean; onExpand?: () => void
 export function PlanBuilder() {
   const [full, setFull] = useState(false);
   useEffect(() => {
-    if (localStorage.getItem(PLAN_KEY)) return;
-    let old: Record<string, Status> = {};
-    try {
-      old = JSON.parse(localStorage.getItem("openclaw.v3.phases") ?? "{}");
-    } catch {
-      /* ignore */
+    const raw = localStorage.getItem(PLAN_KEY);
+    if (raw) {
+      try {
+        const saved = JSON.parse(raw) as PlanState;
+        const active = saved.workflows?.find((workflow) => workflow.id === saved.activeId);
+        if (saved.activeId === "v3" && isUntouchedV3(active)) {
+          const soc = { ...fromTemplate("soc"), id: active.id };
+          writeLocal(PLAN_KEY, {
+            ...saved,
+            workflows: saved.workflows.map((workflow) =>
+              workflow.id === active.id ? soc : workflow,
+            ),
+            focusId: null,
+          });
+        }
+      } catch {
+        /* Preserve invalid or user-owned saved data for the settings recovery path. */
+      }
+      return;
     }
-    writeLocal(PLAN_KEY, {
-      ...DEFAULT_PLAN,
-      workflows: [{ ...fromTemplate("v3", old), id: "v3" }],
-    });
+    writeLocal(PLAN_KEY, DEFAULT_PLAN);
   }, []);
   return (
     <section className="panel p-4">

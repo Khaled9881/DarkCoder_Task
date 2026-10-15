@@ -69,6 +69,12 @@ export type Screen = {
   actionProposal?: ActionProposal | null;
 };
 
+export function claimsProposalReady(text: string): boolean {
+  return /\b(?:(?:(?:i|we)\s+(?:have\s+)?)?(?:prepared|submitted|created|proposed)\s+(?:(?:the|these|a|an)\s+)?(?:action\s+)?proposals?|proposals?\b.{0,50}\b(?:are|is)\s+(?:ready|pending|submitted))\b/i.test(
+    text,
+  );
+}
+
 const NAV_VALUES: Nav[] = ["back", "cancel", "home"];
 
 function parseActionProposal(raw: unknown): ActionProposal | null | undefined {

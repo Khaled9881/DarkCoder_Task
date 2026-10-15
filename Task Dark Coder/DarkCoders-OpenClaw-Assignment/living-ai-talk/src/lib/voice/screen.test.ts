@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   actionProposalDecisionText,
+  claimsProposalReady,
   parseActionProposalDecision,
   type ActionProposal,
 } from "./screen.ts";
@@ -45,4 +46,11 @@ test("only clear approval and denial replies are treated as proposal decisions",
   assert.equal(parseActionProposalDecision("Dismiss the proposal"), "dismissed");
   assert.equal(parseActionProposalDecision("Please prepare proposals for my approval"), null);
   assert.equal(parseActionProposalDecision("I approve, but explain the impact first"), null);
+});
+
+test("detects unbacked claims that action proposals are ready", () => {
+  assert.equal(claimsProposalReady("I have prepared proposals to reset admin credentials."), true);
+  assert.equal(claimsProposalReady("The proposal is pending review."), true);
+  assert.equal(claimsProposalReady("I recommend reviewing the service account."), false);
+  assert.equal(claimsProposalReady("Would you like me to prepare a proposal?"), false);
 });
